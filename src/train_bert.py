@@ -116,9 +116,10 @@ def test_model(args, dataset, model):
         label_list.append(label)
         pred_list.append(copy.deepcopy(pred))
         # acc
-        gold_score = pred[label]
-        pred.sort(reverse=True)
-        gold_rank = pred.index(gold_score)
+        pred_id = [[pred[i], i], for i in range(len(pred))]
+        pred_id.sort(reverse=True, key=lambda x: x[0])
+        id_sort = [_[1] for _ in pred_id]
+        gold_rank = id_sort.index(label)
         if (gold_rank == 0): acc1 += 1
         if (gold_rank < 5): acc5 += 1
         if (gold_rank < 10): acc10 += 1
