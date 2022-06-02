@@ -17,8 +17,9 @@ def read_csv_file(path):
     return samples
 
 class BertDataset(Data.Dataset):
-    def __init__(self, sample_path, chaizi_path, bert_pretrain_name, neg_rate=10): # csv origin file
+    def __init__(self, args, sample_path, chaizi_path, bert_pretrain_name, neg_rate=10): # csv origin file
         # pdb.set_trace()
+        self.args = args
         self.sample_path = sample_path
         self.neg_rate = neg_rate
         self.samples = read_csv_file(self.sample_path) # all samples
@@ -38,18 +39,27 @@ class BertDataset(Data.Dataset):
                 val = ""
                 for i in range(1, len(items)):
                     val += items[i]
+                val = val.replace(" ", "")
                 self.chaizi_dict[key] = val
         # chai golds
-
         self.golds_radicle = [self.chaizi_dict[x] if x in self.chaizi_dict else "" for x in self.golds] # N len
         self.golds_set_radicle = [self.chaizi_dict[x] if x in self.chaizi_dict else "" for x in self.golds_set] # G len
-        
+        # chai riddle
+        if (args.use_riddle_radicle):
+            def to_radicle(s):
+                ret = ""
+                for c in s:
+                    ret += self.chaizi_dict[c] if c in self.chaizi_dict else ""
+                return ret
+            self.riddles_radicle = [to_radicle(s) for s in self.riddles]
 
     def __getitem__(self, index):
         riddle = ""
         ans = ""
         label = 0
         riddle = self.riddles[index // self.neg_rate]
+        if (self.args.use_riddle_radicle):
+            riddle = self.riddles[index // self.neg_rate] + self.riddles_radicle[index // self.neg_rate]
         if index % self.neg_rate == 0:
             ans = self.golds_radicle[index // self.neg_rate]
             label = 1
@@ -75,12 +85,14 @@ class BertDataset(Data.Dataset):
         return ret
 
 class BertTestDataset(BertDataset):
-    def __init__(self, sample_path, chaizi_path, bert_pretrain_name): # csv origin file
-        super(BertTestDataset, self).__init__(sample_path, chaizi_path, bert_pretrain_name)
+    def __init__(self, args, sample_path, chaizi_path, bert_pretrain_name): # csv origin file
+        super(BertTestDataset, self).__init__(args, sample_path, chaizi_path, bert_pretrain_name)
 
     
     def __getitem__(self, index):
         riddle = self.riddles[index]
+        if (self.args.use_riddle_radicle):
+            riddle += self.riddles_radicle[index]
         recall = self.golds_set_radicle
         label = self.golds_pos[index]
         

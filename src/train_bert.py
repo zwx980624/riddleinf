@@ -59,7 +59,6 @@ def train_model(args, dataset, val_dataset, model):
             ans = data["ans"]
             label = data["label"]
             label = torch.tensor(label, dtype=torch.float32).reshape([-1,1])
-            # pdb.set_trace()
             train_input = tokenizer(text=riddle, text_pair=ans, padding=True, truncation=True, max_length=50, return_tensors='pt')
             if torch.cuda.is_available():
                 train_input["input_ids"] = train_input["input_ids"].cuda()
@@ -136,19 +135,20 @@ def main():
     parser.add_argument('--output_dir', default='', type=str, required=True, help='Model Saved Path, Output Directory')
     parser.add_argument("--bert_pretrain_name", default='bert-base-chinese')
     parser.add_argument('--bert_pretrain_path', default='', type=str)
-    parser.add_argument('--train_file', default='../data/train_small.csv', type=str)
+    parser.add_argument('--train_file', default='../data/train.csv', type=str)
 
     parser.add_argument('--model_reload_path', default='', type=str, help='pretrained model to finetune')
 
-    parser.add_argument('--dev_file', default='../data/valid_small2.csv', type=str)
-    parser.add_argument('--test_file', default='../data/valid_small2.csv', type=str)
+    parser.add_argument('--dev_file', default='../data/valid_small.csv', type=str)
+    parser.add_argument('--test_file', default='../data/valid_small.csv', type=str)
 
     parser.add_argument('--chaizi_file', default='../data/chaizi-jt.txt', type=str)
     parser.add_argument('--neg_rate', default=10, type=int)
+    parser.add_argument('--use_riddle_radicle', action='store_true')
 
     parser.add_argument('--schedule', default='linear', type=str)
     parser.add_argument('--batch_size', default=128, type=int)
-    parser.add_argument('--learning_rate', default=5e-4, type=float)
+    parser.add_argument('--learning_rate', default=5e-5, type=float)
     parser.add_argument('--n_epochs', default=50, type=int)
     parser.add_argument('--max_grad_norm', default=3.0, type=int)
     parser.add_argument('--warmup_steps', default=0, type=int)
@@ -189,8 +189,8 @@ def main():
     logger.addHandler(handler)
 
     # train_data, val_data
-    train_data = BertDataset(args.train_file, args.chaizi_file, args.bert_pretrain_name, args.neg_rate)
-    val_data = BertTestDataset(args.dev_file, args.chaizi_file, args.bert_pretrain_name)
+    train_data = BertDataset(args, args.train_file, args.chaizi_file, args.bert_pretrain_name, args.neg_rate)
+    val_data = BertTestDataset(args, args.dev_file, args.chaizi_file, args.bert_pretrain_name)
 
     # initialize model
     model = initial_model(args)
