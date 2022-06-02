@@ -116,7 +116,7 @@ def test_model(args, dataset, model):
         label_list.append(label)
         pred_list.append(copy.deepcopy(pred))
         # acc
-        pred_id = [[pred[i], i], for i in range(len(pred))]
+        pred_id = [[pred[i], i] for i in range(len(pred))]
         pred_id.sort(reverse=True, key=lambda x: x[0])
         id_sort = [_[1] for _ in pred_id]
         gold_rank = id_sort.index(label)
@@ -124,7 +124,9 @@ def test_model(args, dataset, model):
         if (gold_rank < 5): acc5 += 1
         if (gold_rank < 10): acc10 += 1
         loop.set_postfix(acc10 = acc10/(idx+1))
-    logger.info("acc1: {},\t acc5: {},\t acc10: {}".format(acc1/idx, acc5/idx, acc10/idx))
+    logger.info("acc1: {},\t acc5: {},\t acc10: {}".format(acc1/len(dataset), acc5/len(dataset), acc10/len(dataset)))
+    logger.info("label_list" + str(label_list))
+    logger.info("pred_list" + str(pred_list))
     # mrr = MRR(label_list, pred_list)
     return acc1/idx, acc5/idx, acc10/idx
 
@@ -134,12 +136,12 @@ def main():
     parser.add_argument('--output_dir', default='', type=str, required=True, help='Model Saved Path, Output Directory')
     parser.add_argument("--bert_pretrain_name", default='bert-base-chinese')
     parser.add_argument('--bert_pretrain_path', default='', type=str)
-    parser.add_argument('--train_file', default='../data/train.csv', type=str)
+    parser.add_argument('--train_file', default='../data/train_small.csv', type=str)
 
     parser.add_argument('--model_reload_path', default='', type=str, help='pretrained model to finetune')
 
-    parser.add_argument('--dev_file', default='../data/valid_small.csv', type=str)
-    parser.add_argument('--test_file', default='../data/valid_small.csv', type=str)
+    parser.add_argument('--dev_file', default='../data/valid_small2.csv', type=str)
+    parser.add_argument('--test_file', default='../data/valid_small2.csv', type=str)
 
     parser.add_argument('--chaizi_file', default='../data/chaizi-jt.txt', type=str)
     parser.add_argument('--neg_rate', default=10, type=int)
