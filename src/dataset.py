@@ -68,7 +68,7 @@ class BertDataset(Data.Dataset):
             if (len(self.recall_data) != len(self.riddles)):
                 print("************error: recall data len %d != riddle len %d****************"%(len(self.recall_data), len(self.riddles)))
                 args.use_recall = False
-            self.recall_list = [[char for char in line] for line in self.recall_data] # N len [[],[],...]
+            self.recall_list = [[char for char in line] if len(line) != 0 else self.golds_set for line in self.recall_data] # N len [[],[],...]
             self.recall_list_gold_pos = [self.recall_list[i].index(self.golds[i]) \
                                                         if self.golds[i] in self.recall_list[i] else -1 \
                                                                 for i in range(len(self.recall_data))]
