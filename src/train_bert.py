@@ -8,7 +8,7 @@ import torch.nn as nn
 import random
 import numpy as np
 from transformers import BertTokenizer, BertModel, AdamW, AutoTokenizer, AutoModel
-from dataset import BertDataset, BertTestDataset, RecallDataset
+from dataset import BertDataset, BertTestDataset, RecallDataset, BertPredDataset
 from model import RiddleBertModel
 from tqdm import tqdm
 import pdb
@@ -70,7 +70,7 @@ def train_model(args, dataset, val_dataset, model):
             optimizer.step()
             #loss.detach().cpu().numpy()
             loop.set_postfix(loss = loss.item())
-        if (epoch % args.n_val == 0):
+        if (epoch < 3 or epoch % args.n_val == 0):
             # test
             acc1, acc5, acc10, mrr, rec_fail = test_model(args, val_dataset, model)
             if (mrr > best_mrr):
@@ -137,6 +137,42 @@ def test_model(args, dataset, model):
     # logger.info("pred_list" + str(pred_list))
     return acc1/idx, acc5/idx, acc10/idx, mrr/idx, recall_failed/idx
 
+def pred_model(args, dataset, model):
+    tokenizer = AutoTokenizer.from_pretrained(args.bert_pretrain_name)
+    # softmax = nn.Softmax(dim=1)
+    logger.info("start predicting")
+    model.eval()
+    loop = tqdm(dataset, total=len(dataset))
+    pred_list = []
+    for idx, data in enumerate(loop):
+        riddle = data[0]
+        recall_list = data[1]
+        recall_dataset = RecallDataset(recall_list)
+        recall_dataloader = Data.DataLoader(dataset=recall_dataset, batch_size=args.batch_size, shuffle=False)
+        logit = []
+        for recall in recall_dataloader:
+            riddle_copy = [riddle for _ in range(len(recall))]
+            # pdb.set_trace()
+            test_input = tokenizer(text=riddle_copy, text_pair=recall, padding=True, truncation=True, max_length=50, return_tensors='pt')
+            if torch.cuda.is_available():
+                test_input["input_ids"] = test_input["input_ids"].cuda()
+                test_input["token_type_ids"] = test_input["token_type_ids"].cuda()
+                test_input["attention_mask"] = test_input["attention_mask"].cuda()
+            logit_batch = model(test_input).reshape(-1)
+            logit_batch = logit_batch.detach().cpu().numpy().tolist()
+            logit += logit_batch
+        
+        # pdb.set_trace()
+        pred = softmax(logit).tolist()
+        # acc
+        pred_id = [[pred[i], i] for i in range(len(pred))]
+        pred_id.sort(reverse=True, key=lambda x: x[0])
+        # id_sort = [_[1] for _ in pred_id]
+        pred_list.append(pred_id[:10])
+
+    return pred_list
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -148,7 +184,8 @@ def main():
     parser.add_argument('--model_reload_path', default='', type=str, help='pretrained model to finetune')
 
     parser.add_argument('--dev_file', default='../data/valid_small2.csv', type=str)
-    parser.add_argument('--test_file', default='../data/valid_small2.csv', type=str)
+    parser.add_argument('--test_file', default='../data/test_small.txt', type=str)
+    parser.add_argument('--gold_file', default='../data/dict.txt', type=str)
     parser.add_argument('--train_recall_file', default='../data/train_recall_small.json', type=str)
     parser.add_argument('--dev_recall_file', default='../data/valid_recall_small.json', type=str)
     parser.add_argument('--test_recall_file', default='../data/valid_recall_small.json', type=str)
@@ -181,10 +218,6 @@ def main():
 
     args = parser.parse_args()
 
-    for arg in vars(args):
-        logger.info('{}: {}'.format(arg, getattr(args, arg)))
-
-
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
@@ -201,19 +234,50 @@ def main():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+    for arg in vars(args):
+        logger.info('{}: {}'.format(arg, getattr(args, arg)))
+
     # train_data, val_data
     train_data = BertDataset(args, args.train_file, args.train_recall_file, args.neg_rate)
     val_data = BertTestDataset(args, args.dev_file, args.dev_recall_file)
+    pred_data = BertPredDataset(args)
 
     # initialize model
     model = initial_model(args)
 
     if torch.cuda.is_available():
         model.cuda()
+
+    if (args.model_reload_path != ""):
+        logger.info("loading model " + args.model_reload_path)
+        model.load_state_dict(torch.load(args.model_reload_path))
+
     # train
     if not args.only_test:
         train_model(args, train_data, val_data, model)
-    test_model(args, val_data, model)
+    
+    # predict
+    pred_result = pred_model(args, pred_data, model)
+    results = []
+    scores = []
+    for i in range(len(pred_result)):
+        recall_list = pred_data.recall_list[i] if args.use_recall else pred_data.golds_set
+        riddle_result = []
+        score_result = []
+        for j in range(len(pred_result[i])):
+            id = pred_result[i][j][1]
+            score = pred_result[i][j][0]
+            char = recall_list[id]
+            riddle_result.append(char)
+            score_result.append(score)
+        results.append(riddle_result)
+        scores.append(score_result)
+    with open(os.path.join(args.output_dir, "pred_result.txt"), "w") as f:
+        for line in results:
+            for char in line:
+                f.write(char)
+                f.write('\t')
+            f.write('\n')
 
 if __name__ == "__main__":
     main()

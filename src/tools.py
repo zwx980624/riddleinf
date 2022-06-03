@@ -1,6 +1,6 @@
 import numpy as np
 
-def MRR(pos, n):
+def MRR(pos, n=5):
     ret = 1.0 / (pos+1) if pos <= n else 0
     return ret
 
