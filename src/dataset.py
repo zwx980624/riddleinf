@@ -7,6 +7,7 @@ import copy
 import pdb
 import csv
 import random
+import json
 
 def read_csv_file(path):
     samples = []
@@ -17,7 +18,7 @@ def read_csv_file(path):
     return samples
 
 class BertDataset(Data.Dataset):
-    def __init__(self, args, sample_path, chaizi_path, bert_pretrain_name, neg_rate=10): # csv origin file
+    def __init__(self, args, sample_path, recall_file_path, neg_rate=10): # csv origin file
         # pdb.set_trace()
         self.args = args
         self.sample_path = sample_path
@@ -28,7 +29,7 @@ class BertDataset(Data.Dataset):
         self.golds_pos = [self.golds_set.index(x) for x in self.golds]
         self.riddles = [x[1] for x in self.samples]
         # chaizi
-        self.chaizi_path = chaizi_path
+        self.chaizi_path = args.chaizi_file
         self.chaizi_dict = {}
         with open(self.chaizi_path) as f:
             lines = f.readlines()
@@ -52,6 +53,17 @@ class BertDataset(Data.Dataset):
                     ret += self.chaizi_dict[c] if c in self.chaizi_dict else ""
                 return ret
             self.riddles_radicle = [to_radicle(s) for s in self.riddles]
+        # use recall
+        if (args.use_recall):
+            # pdb.set_trace()
+            self.recall_data = json.load(open(recall_file_path))
+            if (len(self.recall_data) != len(self.riddles)):
+                print("************error: recall data len %d != riddle len %d****************"%(len(self.recall_data), len(self.riddles)))
+                args.use_recall = False
+            self.recall_list = [[recall["ans"] for recall in riddle["recall"]] for riddle in self.recall_data] # N len [[],[],...]
+            self.recall_list_gold_pos = [self.recall_list[i].index(self.golds[i]) \
+                                                        if self.golds[i] in self.recall_list[i] else -1 \
+                                                                for i in range(len(self.recall_data))]
 
     def __getitem__(self, index):
         riddle = ""
@@ -64,8 +76,13 @@ class BertDataset(Data.Dataset):
             ans = self.golds_radicle[index // self.neg_rate]
             label = 1
         else:
-            rand_idx = random.randint(0, len(self.golds_radicle)-1)
-            ans = self.golds_radicle[rand_idx]
+            if (self.args.use_recall):
+                riddle_recall = self.recall_list[index // self.neg_rate]
+                ans_char = riddle_recall[random.randint(0, len(riddle_recall)-1)]
+                ans = self.chaizi_dict[ans_char] if ans_char in self.chaizi_dict else ""
+            else:
+                rand_idx = random.randint(0, len(self.golds_radicle)-1)
+                ans = self.golds_radicle[rand_idx]
         
         # return riddle + "[SEP]" + ans
         return (riddle, ans, label)
@@ -83,10 +100,30 @@ class BertDataset(Data.Dataset):
             "label": label,
         }
         return ret
+    def save_gold_chaizi_set(self):
+        ret = set()
+        with open("../data/dict.txt") as f:
+            lines = f.readlines()
+            for line in lines:
+                gold = line[0]
+                gold_radicle = self.chaizi_dict[gold] if gold in self.chaizi_dict else ""
+                for c in gold_radicle:
+                    ret.add(c)
+                ret.add(gold)
+        # for gold_redicle in self.golds_set_radicle:
+        #     for x in gold_redicle:
+        #         ret.add(x)
+        # for gold in self.golds:
+        #     ret.add(gold)
+
+        with open("../gold_chaizi_set_test.json", "w", encoding="utf-8") as f:
+            json.dump(list(ret), f, indent=4, ensure_ascii=False)
+
+
 
 class BertTestDataset(BertDataset):
-    def __init__(self, args, sample_path, chaizi_path, bert_pretrain_name): # csv origin file
-        super(BertTestDataset, self).__init__(args, sample_path, chaizi_path, bert_pretrain_name)
+    def __init__(self, args, sample_path, recall_file_path): # csv origin file
+        super(BertTestDataset, self).__init__(args, sample_path, recall_file_path)
 
     
     def __getitem__(self, index):
@@ -95,6 +132,9 @@ class BertTestDataset(BertDataset):
             riddle += self.riddles_radicle[index]
         recall = self.golds_set_radicle
         label = self.golds_pos[index]
+        if (self.args.use_recall):
+            recall = [self.chaizi_dict[x] if x in self.chaizi_dict else "" for x in self.recall_list[index]] # G len
+            label = self.recall_list_gold_pos[index]
         
         return (riddle, recall, label)
 
@@ -111,4 +151,5 @@ class RecallDataset(Data.Dataset):
         return len(self.recall_list)
 
 if __name__ == "__main__":
-    dataset = BertDataset("../data/valid.csv", "../data/chaizi-jt.txt", "bert-base-chinese", neg_rate=10)
+    dataset = BertDataset(None, "../data/train.csv", "../data/chaizi-jt.txt", "bert-base-chinese", neg_rate=10)
+    dataset.save_gold_chaizi_set()

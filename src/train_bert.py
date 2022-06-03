@@ -13,6 +13,7 @@ from model import RiddleBertModel
 from tqdm import tqdm
 import pdb
 import copy
+from tools import softmax, MRR
 
 logging.basicConfig(level = logging.INFO,format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -32,10 +33,6 @@ def initial_model(args):
     
     return model
 
-def softmax(x):
-    y = np.exp(x - np.max(x))
-    f_x = y / np.sum(np.exp(x))
-    return f_x
 
 def train_model(args, dataset, val_dataset, model):
     dataloader = Data.DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, \
@@ -50,6 +47,7 @@ def train_model(args, dataset, val_dataset, model):
 
     logger.info("start training")
     best_acc10 = 0.0
+    best_mrr = 0.0
     model.train()
     for epoch in range(args.n_epochs):
         logger.info("epoch:{}".format(epoch))
@@ -74,9 +72,10 @@ def train_model(args, dataset, val_dataset, model):
             loop.set_postfix(loss = loss.item())
         if (epoch % args.n_val == 0):
             # test
-            acc1, acc5, acc10 = test_model(args, val_dataset, model)
-            if (acc10 > best_acc10):
+            acc1, acc5, acc10, mrr, rec_fail = test_model(args, val_dataset, model)
+            if (mrr > best_mrr):
                 # save
+                best_mrr = mrr
                 logger.info("save model")
                 torch.save(model.state_dict(), os.path.join(args.output_dir, "epoch_{}.ckpt".format(epoch)))
 
@@ -91,10 +90,18 @@ def test_model(args, dataset, model):
     acc1 = 0
     acc5 = 0
     acc10 = 0
+    recall_failed = 0
+    mrr = 0.0
     for idx, data in enumerate(loop):
         riddle = data[0]
         recall_list = data[1]
         label  = data[2]
+        if (label == -1):
+            recall_failed += 1
+            label_list.append(-1)
+            pred_list.append([])
+            loop.set_postfix(acc10 = acc10/(idx+1))
+            continue
         recall_dataset = RecallDataset(recall_list)
         recall_dataloader = Data.DataLoader(dataset=recall_dataset, batch_size=args.batch_size, shuffle=False)
         logit = []
@@ -122,12 +129,13 @@ def test_model(args, dataset, model):
         if (gold_rank == 0): acc1 += 1
         if (gold_rank < 5): acc5 += 1
         if (gold_rank < 10): acc10 += 1
-        loop.set_postfix(acc10 = acc10/(idx+1))
-    logger.info("acc1: {},\t acc5: {},\t acc10: {}".format(acc1/len(dataset), acc5/len(dataset), acc10/len(dataset)))
-    logger.info("label_list" + str(label_list))
-    logger.info("pred_list" + str(pred_list))
-    # mrr = MRR(label_list, pred_list)
-    return acc1/idx, acc5/idx, acc10/idx
+        mrr += MRR(gold_rank)
+        loop.set_postfix(mrr = mrr/(idx+1))
+    logger.info("acc1: {},\t acc5: {},\t acc10: {},\t mrr: {}\t rec_fail: {}".format(\
+                            acc1/len(dataset), acc5/len(dataset), acc10/len(dataset), mrr/len(dataset), recall_failed/len(dataset)))
+    # logger.info("label_list" + str(label_list))
+    # logger.info("pred_list" + str(pred_list))
+    return acc1/idx, acc5/idx, acc10/idx, mrr/idx, recall_failed/idx
 
 def main():
     parser = argparse.ArgumentParser()
@@ -135,16 +143,21 @@ def main():
     parser.add_argument('--output_dir', default='', type=str, required=True, help='Model Saved Path, Output Directory')
     parser.add_argument("--bert_pretrain_name", default='bert-base-chinese')
     parser.add_argument('--bert_pretrain_path', default='', type=str)
-    parser.add_argument('--train_file', default='../data/train.csv', type=str)
+    parser.add_argument('--train_file', default='../data/train_small.csv', type=str)
 
     parser.add_argument('--model_reload_path', default='', type=str, help='pretrained model to finetune')
 
-    parser.add_argument('--dev_file', default='../data/valid_small.csv', type=str)
-    parser.add_argument('--test_file', default='../data/valid_small.csv', type=str)
+    parser.add_argument('--dev_file', default='../data/valid_small2.csv', type=str)
+    parser.add_argument('--test_file', default='../data/valid_small2.csv', type=str)
+    parser.add_argument('--train_recall_file', default='../data/train_recall_small.json', type=str)
+    parser.add_argument('--dev_recall_file', default='../data/valid_recall_small.json', type=str)
+    parser.add_argument('--test_recall_file', default='../data/valid_recall_small.json', type=str)
 
     parser.add_argument('--chaizi_file', default='../data/chaizi-jt.txt', type=str)
     parser.add_argument('--neg_rate', default=10, type=int)
     parser.add_argument('--use_riddle_radicle', action='store_true')
+    parser.add_argument('--use_recall', action='store_true')
+    parser.add_argument('--use_recall_pos', action='store_true')
 
     parser.add_argument('--schedule', default='linear', type=str)
     parser.add_argument('--batch_size', default=128, type=int)
@@ -189,8 +202,8 @@ def main():
     logger.addHandler(handler)
 
     # train_data, val_data
-    train_data = BertDataset(args, args.train_file, args.chaizi_file, args.bert_pretrain_name, args.neg_rate)
-    val_data = BertTestDataset(args, args.dev_file, args.chaizi_file, args.bert_pretrain_name)
+    train_data = BertDataset(args, args.train_file, args.train_recall_file, args.neg_rate)
+    val_data = BertTestDataset(args, args.dev_file, args.dev_recall_file)
 
     # initialize model
     model = initial_model(args)
