@@ -3,3 +3,4 @@ cd src
 python train_bert.py \
 	--output_dir ../train_riddle_bert_recall \
 	--use_recall \
+	--n_epochs 5 \

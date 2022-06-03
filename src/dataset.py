@@ -64,11 +64,11 @@ class BertDataset(Data.Dataset):
         # use recall
         if (args.use_recall):
             # pdb.set_trace()
-            self.recall_data = json.load(open(recall_file_path))
+            self.recall_data = read_txt_file(recall_file_path)
             if (len(self.recall_data) != len(self.riddles)):
                 print("************error: recall data len %d != riddle len %d****************"%(len(self.recall_data), len(self.riddles)))
                 args.use_recall = False
-            self.recall_list = [[recall["ans"] for recall in riddle["recall"]] for riddle in self.recall_data] # N len [[],[],...]
+            self.recall_list = [[char for char in line] for line in self.recall_data] # N len [[],[],...]
             self.recall_list_gold_pos = [self.recall_list[i].index(self.golds[i]) \
                                                         if self.golds[i] in self.recall_list[i] else -1 \
                                                                 for i in range(len(self.recall_data))]
@@ -195,12 +195,13 @@ class BertPredDataset(Data.Dataset):
         # use recall
         if (args.use_recall):
             # pdb.set_trace()
-            self.recall_data = json.load(open(recall_file_path))
+            self.recall_data = read_txt_file(self.args.test_recall_file)
             if (len(self.recall_data) != len(self.riddles)):
                 print("************error: recall data len %d != riddle len %d****************"%(len(self.recall_data), len(self.riddles)))
                 args.use_recall = False
-            self.recall_list = [[recall["ans"] for recall in riddle["recall"]] for riddle in self.recall_data] # N len [[],[],...]
-    
+            self.recall_list = [[char for char in line] for line in self.recall_data] # N len [[],[],...]
+            
+
     def __getitem__(self, index):
         riddle = self.riddles[index]
         if (self.args.use_riddle_radicle):

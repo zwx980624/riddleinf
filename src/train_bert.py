@@ -186,9 +186,9 @@ def main():
     parser.add_argument('--dev_file', default='../data/valid_small2.csv', type=str)
     parser.add_argument('--test_file', default='../data/test_small.txt', type=str)
     parser.add_argument('--gold_file', default='../data/dict.txt', type=str)
-    parser.add_argument('--train_recall_file', default='../data/train_recall_small.json', type=str)
-    parser.add_argument('--dev_recall_file', default='../data/valid_recall_small.json', type=str)
-    parser.add_argument('--test_recall_file', default='../data/valid_recall_small.json', type=str)
+    parser.add_argument('--train_recall_file', default='../data/train_recall_small.txt', type=str)
+    parser.add_argument('--dev_recall_file', default='../data/valid_recall_small2.txt', type=str)
+    parser.add_argument('--test_recall_file', default='../data/test_recall_small.txt', type=str)
 
     parser.add_argument('--chaizi_file', default='../data/chaizi-jt.txt', type=str)
     parser.add_argument('--neg_rate', default=10, type=int)
