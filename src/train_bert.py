@@ -197,22 +197,10 @@ def main():
     parser.add_argument('--use_recall_pos', action='store_true')
     parser.add_argument('--use_ans_not_radicle', action='store_true')
 
-    parser.add_argument('--schedule', default='linear', type=str)
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--learning_rate', default=5e-5, type=float)
     parser.add_argument('--n_epochs', default=50, type=int)
-    parser.add_argument('--max_grad_norm', default=3.0, type=int)
-    parser.add_argument('--warmup_steps', default=0, type=int)
-
-    parser.add_argument('--n_save_ckpt', default=1, type=int, help='totally save $n_save_ckpt best ckpts')
     parser.add_argument('--n_val', default=1, type=int, help='conduct validation every $n_val epochs')
-    parser.add_argument('--logging_steps', default=100, type=int)
-
-    parser.add_argument('--embedding_size', default=128, type=int, help='Embedding size')
-    parser.add_argument('--hidden_size', default=512, type=int, help='Hidden size')
-    parser.add_argument('--beam_size', default=5, type=int, help='Beam size')
-
-    parser.add_argument('--dropout', default=0.5, type=float)
     parser.add_argument('--seed', default=42, type=int, help='universal seed')
 
     parser.add_argument('--only_test', action='store_true')
