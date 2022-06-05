@@ -70,7 +70,7 @@ def train_model(args, dataset, val_dataset, model):
             optimizer.step()
             #loss.detach().cpu().numpy()
             loop.set_postfix(loss = loss.item())
-        if (epoch < 3 or epoch % args.n_val == 0):
+        if (epoch < 3 or epoch == args.n_epochs - 1 or epoch % args.n_val == 0):
             # test
             acc1, acc5, acc10, mrr, rec_fail = test_model(args, val_dataset, model)
             if (mrr > best_mrr):
@@ -195,6 +195,7 @@ def main():
     parser.add_argument('--use_riddle_radicle', action='store_true')
     parser.add_argument('--use_recall', action='store_true')
     parser.add_argument('--use_recall_pos', action='store_true')
+    parser.add_argument('--use_ans_not_radicle', action='store_true')
 
     parser.add_argument('--schedule', default='linear', type=str)
     parser.add_argument('--batch_size', default=128, type=int)

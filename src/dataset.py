@@ -53,6 +53,9 @@ class BertDataset(Data.Dataset):
         # chai golds
         self.golds_radicle = [self.chaizi_dict[x] if x in self.chaizi_dict else "" for x in self.golds] # N len
         self.golds_set_radicle = [self.chaizi_dict[x] if x in self.chaizi_dict else "" for x in self.golds_set] # G len
+        if (args.use_ans_not_radicle):
+            self.golds_radicle = self.golds
+            self.golds_set_radicle = self.golds_set
         # chai riddle
         if (args.use_riddle_radicle):
             def to_radicle(s):
