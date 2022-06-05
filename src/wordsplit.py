@@ -253,7 +253,6 @@ def write_json(dataType):
         json.dump(json_list, f, indent=4, ensure_ascii=False)
     return n_right/LenOfRid, n_length/LenOfRid
 
-# print(write_json('valid'))
 
 def write_txt(dataType):
     if dataType == 'train':
@@ -283,9 +282,3 @@ def write_txt(dataType):
         file_write_obj.write('\n')
     file_write_obj.close()
     return n_right/LenOfRid, n_length/LenOfRid
-
-print(write_txt('valid'))
-print(write_txt('train'))
-print(write_txt('test'))     
-
-        
