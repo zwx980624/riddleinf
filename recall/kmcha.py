@@ -18,7 +18,6 @@ def kmcha_same(word):
         if i == 0:
             continue
         ret.append(dt.split("</span>")[0])
-    print(ret)
     return ret
 
 def kmcha_similar(word):
@@ -35,7 +34,6 @@ def kmcha_similar(word):
         if i == 0:
             continue
         ret.append(dt.split("</span>")[0])
-    print(ret)
     return ret
 
 if __name__ == "__main__":
